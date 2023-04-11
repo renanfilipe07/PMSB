@@ -1,1 +1,41 @@
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
+from pyproj import CRS
 
+# Leitura do arquivo excel contendo as coordenadas
+df = pd.read_excel(r'C:\Users\renan\Desktop\dados_abastecimento.xlsx')
+
+# Separação das coordenadas em colunas distintas
+df[['Latitude', 'Longitude']] = df['coord'].str.split(',', expand=True)
+
+# Conversão das coordenadas para o formato correto
+df['Latitude'] = df['Latitude'].astype(float)
+df['Longitude'] = df['Longitude'].astype(float)
+
+# Criação da coluna geometry com os pontos
+df['geometry'] = df.apply(lambda x: Point((float(x.Longitude), float(x.Latitude))), axis=1)
+
+# Criação do GeoDataFrame
+gdf = gpd.GeoDataFrame(df, geometry='geometry')
+
+# adiciona as colunas 'municipio', 'descricao_ponto' e 'tipo' ao GeoDataFrame
+gdf['municipio'] = df['municipio']
+gdf['descricao_ponto'] = df['descricao_ponto']
+gdf['tipo'] = df['tipo']
+
+# Define o SRC como WGS84
+gdf = gdf.set_crs(CRS.from_epsg(4326))
+
+# cria uma lista com os nomes dos municípios sem repetição
+municipio = df['municipio']
+municipio_separados = list(set(municipio))
+
+# Itera sobre a lista de municípios separados
+for municipio in municipio_separados:
+    # Filtro para selecionar somente as geometrias do município atual
+    filtro = gdf['municipio'] == municipio
+    gdf_municipio_atual = gdf[filtro]
+    
+    # Salva o GeoDataFrame com as shapes do município atual em um arquivo shapefile com nome correspondente
+    gdf_municipio_atual.to_file(f'{municipio}.shp')
